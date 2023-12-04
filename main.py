@@ -1,7 +1,7 @@
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse,HTMLResponse
 from fastapi.exceptions import HTTPException
 
 import firebase_admin
@@ -9,9 +9,13 @@ from firebase_admin import credentials, auth
 
 import pyrebase
 import json
+from fastapi.templating import Jinja2Templates
+from starlette.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+templates = Jinja2Templates(directory="templates")
 
 
-firebase = pyrebase.initialize_app(json.load(open('firebase_config.json')))
 
 
 if not firebase_admin._apps:
@@ -32,7 +36,21 @@ app.add_middleware(
    allow_headers=allow_all
 )
 
+@app.get("/")
+async def home(request: Request):
+    return templates.TemplateResponse("MainLogin.html", {"request": request})
 
+firebase = pyrebase.initialize_app(json.load(open('firebase_config.json')))
+
+@app.get("/loggedin", response_class=HTMLResponse)
+async def loggedIn(request: Request, email: str):
+
+    context = {'request': request, 'data': email}
+
+    return templates.TemplateResponse("client.html", context)
+
+
+firebase = pyrebase.initialize_app(json.load(open('firebase_config.json')))
 # signup endpoint
 @app.post("/signup", include_in_schema=False)
 async def signup(request: Request):
@@ -52,17 +70,13 @@ async def signup(request: Request):
 
 
 @app.post("/login", include_in_schema=False)
-async def login(request: Request):
-   req_json = await request.json()
-   email = req_json['email']
-   password = req_json['password']
-   print(req_json,email,password)
+async def login(request: Request, email: str = Form(...), password: str = Form(...)):
    try:
-       user = firebase.auth().sign_in_with_email_and_password(email, password)
+       firebase.auth().sign_in_with_email_and_password(email, password)
+       print("sdafsfas")
 
-       jwt = user['idToken']
 
-       return JSONResponse(content={'token': jwt}, status_code=200)
+       return RedirectResponse(url= f"/loggedin?email={email}", status_code=status.HTTP_303_SEE_OTHER)
 
 
    except:
