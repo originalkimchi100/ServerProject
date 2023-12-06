@@ -12,6 +12,7 @@ import json
 from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+import qrcode
 
 templates = Jinja2Templates(directory="templates")
 
@@ -72,8 +73,8 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
 
    except:
        print("ERROR!")
-       return templates.TemplateResponse("MainLogin.html", {"request": request})
+       return templates.TemplateResponse("nidlogin.html", {"request": request})
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app")
+    uvicorn.run(app, port=8000, host='0.0.0.0')
