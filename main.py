@@ -35,36 +35,27 @@ app.add_middleware(
    allow_methods=allow_all,
    allow_headers=allow_all
 )
+firebase = pyrebase.initialize_app(json.load(open('firebase_config.json')))
 
 @app.get("/")
 async def home(request: Request):
     return templates.TemplateResponse("MainLogin.html", {"request": request})
+@app.get("/join")
+async def join(request: Request):
+    return templates.TemplateResponse("signup.html", {"request": request})
 
-firebase = pyrebase.initialize_app(json.load(open('firebase_config.json')))
-
-@app.get("/loggedin", response_class=HTMLResponse)
-async def loggedIn(request: Request, email: str):
-
-    context = {'request': request, 'data': email}
-
-    return templates.TemplateResponse("client.html", context)
-
-
-firebase = pyrebase.initialize_app(json.load(open('firebase_config.json')))
 # signup endpoint
 @app.post("/signup", include_in_schema=False)
-async def signup(request: Request):
-   req = await request.json()
-   email = req['email']
-   password = req['password']
+async def signup(request: Request, email: str = Form(...), password: str = Form(...), display_name: str = Form(...)):
+
+
    if email is None or password is None:
        return HTTPException(detail={'message': 'Error! Missing Email or Password'}, status_code=400)
    try:
-       user = auth.create_user(
-           email = email,
-           password = password
-       )
-       return JSONResponse(content={'message': f'Successfully created user {user.uid}'}, status_code=200)
+       auth.create_user(email = email,password = password, display_name= display_name)
+
+       return templates.TemplateResponse("signup.html", {"request": request})
+
    except:
        return HTTPException(detail={'message': 'Error Creating User'}, status_code=400)
 
@@ -72,15 +63,16 @@ async def signup(request: Request):
 @app.post("/login", include_in_schema=False)
 async def login(request: Request, email: str = Form(...), password: str = Form(...)):
    try:
-       firebase.auth().sign_in_with_email_and_password(email, password)
-       print("sdafsfas")
+       user = firebase.auth().sign_in_with_email_and_password(email, password)
+       print(user['displayName'])
+       context = {'request': request, 'data': user['displayName']}
 
-
-       return RedirectResponse(url= f"/loggedin?email={email}", status_code=status.HTTP_303_SEE_OTHER)
+       return templates.TemplateResponse("client.html", context)
 
 
    except:
-       return HTTPException(detail={'message': 'There was an error logging in'}, status_code=400)
+       print("ERROR!")
+       return templates.TemplateResponse("MainLogin.html", {"request": request})
 
 
 if __name__ == "__main__":
