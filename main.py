@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 import qrcode
 import time
 
+
 templates = Jinja2Templates(directory="templates")
 
 
@@ -53,21 +54,21 @@ firebase = pyrebase.initialize_app(json.load(open('firebase_config.json')))
 
 @app.get("/")
 async def home(request: Request):
+
+    print("redirected")
     session_cookie = request.cookies.get("session_cookie")
+
     if not session_cookie:
-        print("sessioncookie가 없어용")
         return templates.TemplateResponse("MainLogin.html", {"request": request})
 
     try:
         decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
-
         context = {'request': request, 'data': decoded_claims['name']}
-
         return templates.TemplateResponse("client.html", context)
 
 
-    except:
-        print("anothererror")
+    except auth.ExpiredSessionCookieError:
+        return templates.TemplateResponse("MainLogin.html", {"request": request})
 
 
 @app.get("/join")
@@ -94,25 +95,26 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
 @app.post("/login", include_in_schema=False)
 async def login(request: Request, email: str = Form(...), password: str = Form(...)):
 
-   expires_in = datetime.timedelta(days=5)
+   expires_in = datetime.timedelta(minutes=6)
    try:
 
        user = firebase.auth().sign_in_with_email_and_password(email, password)
 
 
        session_cookie = auth.create_session_cookie(user['idToken'], expires_in=expires_in)
-       print(session_cookie)
 
-       template_response = templates.TemplateResponse("client.html", context = {'request': request, 'data': user['displayName']})
+       redirect_response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+       print("aaaaaaa")
+       redirect_response.set_cookie(key="session_cookie", value = session_cookie, httponly = "true")
+       print("bbbbbb")
 
-       template_response.set_cookie(key="session_cookie", value = session_cookie, httponly = "true")
-
-       return template_response
+       return redirect_response
 
 
-   except:
-       print("ERROR!")
-       return templates.TemplateResponse("nidlogin.html", {"request": request})
+
+   except Exception as e:
+       print("errorhasoccured")
+       print(e)
 
 
 
