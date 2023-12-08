@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+
+</head>
+
+<body>
+    <img src="https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=http:218.157.107.140:8000&choe=UTF-8" title="Link to Google.com" />
+
+       <script>
+            var ws = new WebSocket("ws://localhost:8000/ws");
+            ws.onmessage = function(event) {
+                event.preventDefault()
+                obj = JSON.parse(event.data)
+                alert("base64"+ obj.base64 + "qrsession" + obj.session)
+
+            };
+        </script>
+
+</body>
+
+</html>
