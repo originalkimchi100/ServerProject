@@ -47,6 +47,28 @@ app.add_middleware(
 firebase = pyrebase.initialize_app(json.load(open('firebase_config.json')))
 
 
+class SessionManager:
+    def __init__(self):
+        self.sessions = {}
+
+
+    def create_session(self, session_id: str):
+        self.sessions[session_id] = {"websocket": None}
+
+    def set_websocket(self, session_id: str, websocket: WebSocket):
+        if session_id in self.sessions:
+            self.sessions[session_id]["websocket"] = websocket
+
+
+    def get_session(self, session_id: str):
+        return self.sessions.get(session_id)
+    def remove_session(self, session_id: str):
+        if session_id in self.sessions:
+            del self.sessions[session_id]
+
+session_manager = SessionManager()
+
+
 @app.get("/")
 async def home(request: Request):
     print("redirected")
@@ -76,20 +98,50 @@ async def join(request: Request):
 
 
 @app.get("/qrlogin")
-async def join(request: Request):
+async def qrjoin(request: Request):
+    base64 = sessionIDgen.generateID(10)
+    session_manager.create_session(base64)
+ # 여기서 필요한 작업 수행 (예: 템플릿 렌더링 등)
+    return templates.TemplateResponse("qrlogin.html", {"request": request, "session_id": base64})
+
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+
+   if not session_manager.get_session(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id")
+
+   await websocket.accept()
+   session_manager.set_websocket(session_id, websocket)
+
+   try:
+    while True:
+       # WebSocket 연결 유지 중 웹소켓으로부터 데이터를 수신할 수 있습니다.
+       await websocket.receive_text()
+       print(session_manager)
+
+   except Exception as e:
+       print(e)
+
+
+async def get_websocket(session_id: str):
+    session = session_manager.get_session(session_id)
+    if session:
+        websocket = session.get("websocket")
+        if websocket:
+            return websocket
+
+    raise HTTPException(status_code=400, detail="WebSocket connection not found for the given session ID")
+
+
+@app.get("/qrclient")
+async def qrclient(request: Request, session_id: str):
+    id_token = request.cookies.get("session_cookie")
+    websocket = await get_websocket(session_id)
+    await websocket.send_text(id_token)
+
     return templates.TemplateResponse("qrlogin.html", {"request": request})
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    base64 = sessionIDgen.generateID(20) #이건 25초마다 다시 생성되야함
-    sessionlogin = "sessions" # session login할것 소켓 열어주면, 데이터가 쿠키로 저장된 토큰 보내고, base64 해당 라우터로 토큰 보내지면, 그 토큰으로 로그인
-
-    scores_dict = {'base64': base64, 'session': sessionlogin}
-    scores_json = json.dumps(scores_dict)
-
-    await websocket.send_text(f"{scores_json}")
 
 
 # signup endpoint

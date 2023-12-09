@@ -8,16 +8,32 @@
 </head>
 
 <body>
-    <img src="https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=http:218.157.107.140:8000&choe=UTF-8" title="Link to Google.com" />
+    <h1>QR Login</h1>
+
+
+        <img id="img" >
+
 
        <script>
-            var ws = new WebSocket("ws://localhost:8000/ws");
-            ws.onmessage = function(event) {
-                event.preventDefault()
-                obj = JSON.parse(event.data)
-                alert("base64"+ obj.base64 + "qrsession" + obj.session)
+            const session_id = "{{session_id}}"
+            const socket = new WebSocket(`ws://218.157.107.140:8000/ws/${session_id}`);
+            const IMG = document.getElementById("img")
+            IMG.src = "https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=http:218.157.107.140:8000/qrclient?session_id={{session_id}}&choe=UTF-8";
+            socket.onmessage = function (event) {
+                function setCookie(name, value, days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                const expires = "expires=" + date.toUTCString();
+                document.cookie = name + "=" + value + ";" + expires + ";path=/";
 
+                }
+
+            setCookie('session_cookie', event.data, 1);
+            socket.close();
+            window.location.href = "http://218.157.107.140:8000";
             };
+
+
         </script>
 
 </body>
