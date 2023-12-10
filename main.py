@@ -162,7 +162,6 @@ async def signup(request: Request, email: str = Form(...), password: str = Form(
 
 @app.post("/login", include_in_schema=False)
 async def login(request: Request, email: str = Form(...), password: str = Form(...)):
-    # expires_in = datetime.timedelta(minutes=6)
     try:
 
         user = firebase.auth().sign_in_with_email_and_password(email, password)
