@@ -1,30 +1,30 @@
 import uvicorn
 from fastapi import FastAPI, Request, Form, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.exceptions import HTTPException
-from fastapi.staticfiles import StaticFiles
-import logging
-
-import datetime
 import firebase_admin
 from firebase_admin import credentials, auth
-from starlette.middleware.sessions import SessionMiddleware
 import pyrebase
 import json
 from starlette.websockets import WebSocket
 from starlette.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-import time
-import asyncio
-from sse_starlette.sse import EventSourceResponse
-import sessionIDgen
-import pyqrcode
+import random
 
-from urllib.request import urlopen
-import base64
 
-sessionid = sessionIDgen #sessionIDgen
+
+def generateID(num):
+    characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+
+    originNum = 0
+    result = ''
+    while(originNum < num):
+        selectedNum = (random.randint(1, len(characters)))
+        result += characters[selectedNum]
+        originNum += 1
+    return result
+
+
 
 templates = Jinja2Templates(directory="templates")
 
@@ -99,9 +99,8 @@ async def join(request: Request):
 
 @app.get("/qrlogin")
 async def qrjoin(request: Request):
-    base64 = sessionIDgen.generateID(10)
+    base64 = generateID(10)
     session_manager.create_session(base64)
- # 여기서 필요한 작업 수행 (예: 템플릿 렌더링 등)
     return templates.TemplateResponse("qrlogin.html", {"request": request, "session_id": base64})
 
 @app.websocket("/ws/{session_id}")
@@ -115,7 +114,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
    try:
     while True:
-       # WebSocket 연결 유지 중 웹소켓으로부터 데이터를 수신할 수 있습니다.
        await websocket.receive_text()
        print(session_manager)
 
@@ -130,12 +128,16 @@ async def get_websocket(session_id: str):
         if websocket:
             return websocket
 
-    raise HTTPException(status_code=400, detail="WebSocket connection not found for the given session ID")
+    raise HTTPException(status_code=400, detail="다시 QR코드를 찍어 주세요, 유효하지 않은 세션ID입니다.")
 
 
 @app.get("/qrclient")
 async def qrclient(request: Request, session_id: str):
     id_token = request.cookies.get("session_cookie")
+    if not id_token:
+        return templates.TemplateResponse("MainLogin.html", {"request": request})
+
+
     websocket = await get_websocket(session_id)
     await websocket.send_text(id_token)
 
@@ -148,14 +150,14 @@ async def qrclient(request: Request, session_id: str):
 @app.post("/signup", include_in_schema=False)
 async def signup(request: Request, email: str = Form(...), password: str = Form(...), display_name: str = Form(...)):
     if email is None or password is None:
-        return HTTPException(detail={'message': 'Error! Missing Email or Password'}, status_code=400)
+        return templates.TemplateResponse("nidSignup.html", {"request": request})
     try:
         auth.create_user(email=email, password=password, display_name=display_name)
 
-        return templates.TemplateResponse("signup.html", {"request": request})
+        return templates.TemplateResponse("MainLogin.html", {"request": request})
 
     except:
-        return HTTPException(detail={'message': 'Error Creating User'}, status_code=400)
+        return templates.TemplateResponse("nidSignup.html", {"request": request})
 
 
 @app.post("/login", include_in_schema=False)
